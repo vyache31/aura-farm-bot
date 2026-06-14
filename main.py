@@ -64,8 +64,11 @@ async def aura_top(message: Message):
 
 @dp.message(Command("change_name"))
 async def change_name(message: Message):
-    name = message.text.replace("/change_name", "").strip()
+    name = message.text.split()[1].strip()
 
+    if not name:
+        await message.answer("имя то введи епта")
+        return
     try:
         await db.change_username(
             message.from_user.id,
