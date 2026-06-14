@@ -80,7 +80,7 @@ async def change_name(message: Message):
         await message.answer("я чломался(")
         return
 
-    await message.answer(f"ок, {name[1]}")
+    await message.answer(f"ок, {' '.join(name[1:])}")
 
 
 async def update_leaderboard(message: Message):
@@ -108,16 +108,33 @@ async def update_leaderboard(message: Message):
 
 @dp.message(F.reply_to_message & F.text)
 async def handle_aura(message: Message):
+    print("MESSAGE:", message.text)
+
     text = message.text or ""
 
     match = AURA_REGEX.search(text)
+
+    print("MATCH:", match)
+
     if not match:
         return
 
     raw = match.group(1)
     delta = int(raw.replace(" ", ""))
-
     target = message.reply_to_message.from_user
+
+    print(
+        "TARGET:",
+        target.id,
+        target.username,
+        target.full_name
+    )
+
+    print(
+        "AUTHOR:",
+        message.from_user.id,
+        message.from_user.username
+    )
     if not target:
         return
 
