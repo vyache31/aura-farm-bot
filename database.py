@@ -1,6 +1,6 @@
 import aiosqlite
 
-DB_PATH = "aura.db"
+DB_PATH = "data/aura.db"
 
 
 async def init_db():
@@ -14,8 +14,34 @@ async def init_db():
             PRIMARY KEY (user_id, chat_id)
         )
         """)
+
+        await db.execute("""
+                CREATE TABLE IF NOT EXISTS leaderboard_messages (
+                    chat_id INTEGER PRIMARY KEY,
+                    message_id INTEGER
+                )
+                """)
         await db.commit()
 
+
+async def save_leaderboard_message(chat_id: int, message_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+        INSERT INTO leaderboard_messages (chat_id, message_id)
+        VALUES (?, ?)
+        ON CONFLICT(chat_id) DO UPDATE SET
+            message_id = excluded.message_id
+        """, (chat_id, message_id))
+        await db.commit()
+
+async def get_leaderboard_message(chat_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+        SELECT message_id FROM leaderboard_messages
+        WHERE chat_id = ?
+        """, (chat_id,))
+        row = await cursor.fetchone()
+        return row[0] if row else None
 
 async def update_aura(user_id: int, chat_id: int, username: str, delta: int):
     async with aiosqlite.connect(DB_PATH) as db:
