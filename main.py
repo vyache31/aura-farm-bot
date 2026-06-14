@@ -64,23 +64,23 @@ async def aura_top(message: Message):
 
 @dp.message(Command("change_name"))
 async def change_name(message: Message):
-    name = message.text.split().strip()
+    name = message.text.strip().split()
 
-    if not len(name) == 1:
+    if len(name) == 1:
         await message.answer("имя то введи епта")
         return
     try:
         await db.change_username(
             message.from_user.id,
             message.chat.id,
-            name
+            name[1]
         )
     except Exception as err:
         print(f"LOG ERROR: {err}")
         await message.answer("я чломался(")
         return
 
-    await message.answer(f"ок, {name}")
+    await message.answer(f"ок, {name[1]}")
 
 
 async def update_leaderboard(message: Message):
