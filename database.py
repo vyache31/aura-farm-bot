@@ -50,7 +50,7 @@ async def update_aura(user_id: int, chat_id: int, username: str, delta: int):
         VALUES (?, ?, ?, ?)
         ON CONFLICT(user_id, chat_id) DO UPDATE SET
             aura = aura + ?,
-            user_id = excluded.user_id
+            user_id = excluded.username
         """, (user_id, chat_id, username, delta, delta))
         await db.commit()
 
