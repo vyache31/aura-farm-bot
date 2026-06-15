@@ -2,11 +2,15 @@ import re
 import asyncio
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message
+from aiogram.types import Message, ReactionTypeEmoji
 from aiogram.filters import Command
 import database as db
 import os
 from dotenv import load_dotenv
+import words
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
@@ -18,6 +22,9 @@ AURA_REGEX = re.compile(r"([+-]\s*\d+)\s*аур[аы]?", re.IGNORECASE)
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+class ChangeUsername(StatesGroup):
+    waiting_for_name = State()
+
 def build_leaderboard(top):
     text = "🏆 Топ по ауре:\n\n"
 
@@ -26,7 +33,7 @@ def build_leaderboard(top):
         text += f"{i}. {name} — {aura}\n"
 
     now = (datetime.now() + timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S")
-    text += f"\n_актуально на {now}_"
+    text += f"\n_я считал в {now}_"
 
     return text
 
@@ -62,25 +69,34 @@ async def aura_top(message: Message):
         sent.message_id
     )
 
+
+
 @dp.message(Command("change_name"))
-async def change_name(message: Message):
-    name = message.text.strip().split()
+async def change_name(message: Message, state: FSMContext):
+    await message.reply("и как?")
+    await state.set_state(ChangeUsername.waiting_for_name)
 
-    if len(name) == 1:
-        await message.answer("имя то введи епта")
-        return
-    try:
-        await db.change_username(
-            message.from_user.id,
-            message.chat.id,
-            name[1]
-        )
-    except Exception as err:
-        print(f"LOG ERROR: {err}")
-        await message.answer("я чломался(")
-        return
+@dp.message(ChangeUsername.waiting_for_name)
+async def process_new_name(message: Message, state: FSMContext):
+    new_name = message.text.strip()
 
-    await message.answer(f"ок, {' '.join(name[1:])}")
+    await db.change_username(
+        message.from_user.id,
+        message.chat.id,
+        new_name
+    )
+
+    await bot.set_message_reaction(
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        reaction=[
+            ReactionTypeEmoji(emoji="👌")
+        ]
+    )
+
+    await message.answer(f"oke, {new_name}")
+
+    await state.clear()
 
 
 async def update_leaderboard(message: Message):
@@ -104,7 +120,7 @@ async def update_leaderboard(message: Message):
             parse_mode="Markdown"
         )
     except:
-        pass
+        await db.save_leaderboard_message(message.chat.id, None)
 
 @dp.message(F.reply_to_message & F.text)
 async def handle_aura(message: Message):
@@ -121,6 +137,10 @@ async def handle_aura(message: Message):
 
     raw = match.group(1)
     delta = int(raw.replace(" ", ""))
+    if abs(delta) > 3000:
+        from random import choice
+        await message.answer(choice(words.phrases_too_much))
+        return
     target = message.reply_to_message.from_user
 
     print(
@@ -140,7 +160,26 @@ async def handle_aura(message: Message):
 
     # нельзя начислять самому себе (по желанию)
     if target.id == message.from_user.id:
-        await message.answer("ты по моему что то попутал..")
+        from random import choice, randint
+        delta = randint(-1000, -1)
+        await message.answer(choice(words.phrases))
+        await message.answer(f"на тебе {delta} очков")
+        await bot.set_message_reaction(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            reaction=[
+                ReactionTypeEmoji(emoji="👎")
+            ]
+        )
+
+    else:
+        await bot.set_message_reaction(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+            reaction=[
+                ReactionTypeEmoji(emoji="❤️")
+            ]
+        )
 
     username = target.username or target.full_name
 

@@ -49,9 +49,8 @@ async def update_aura(user_id: int, chat_id: int, username: str, delta: int):
         INSERT INTO users (user_id, chat_id, username, aura)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(user_id, chat_id) DO UPDATE SET
-            aura = aura + ?,
-            user_id = excluded.username
-        """, (user_id, chat_id, username, delta, delta))
+            aura = aura + excluded.aura
+        """, (user_id, chat_id, username, delta))
         await db.commit()
 
 
