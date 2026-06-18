@@ -75,3 +75,9 @@ async def change_username(user_id: int, chat_id: int, username: str):
             username = excluded.username
         """, (user_id, chat_id, username))
         await db.commit()
+
+async def get_all_chat_ids():
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT DISTINCT chat_id FROM users")
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
