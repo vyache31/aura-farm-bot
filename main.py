@@ -27,7 +27,7 @@ class ChangeUsername(StatesGroup):
 
 class SendStates(StatesGroup):
     selecting_chat = State()
-    waiting_text = State()
+    waiting_content = State()
     confirming = State()
 
 def build_leaderboard(top):
@@ -198,12 +198,12 @@ async def handle_aura(message: Message):
 @dp.message(Command("send"))
 async def cmd_send(message: Message, state: FSMContext):
     if message.chat.type != "private" or message.from_user.id != ADMIN_USER_ID:
-        await message.answer("⛔ Эта команда доступна только администратору в личных сообщениях.")
+        await message.answer("⛔ это только для избранных бро")
         return
 
     chat_ids = await db.get_all_chat_ids()
     if not chat_ids:
-        await message.answer("📭 Нет доступных чатов для отправки.")
+        await message.answer("📭 чатов пока нет")
         return
 
     buttons = []
@@ -215,44 +215,48 @@ async def cmd_send(message: Message, state: FSMContext):
             name = f"Чат {chat_id}"
         buttons.append([InlineKeyboardButton(text=name, callback_data=f"send_chat_{chat_id}")])
 
-    buttons.append([InlineKeyboardButton(text="❌ Отмена", callback_data="send_cancel")])
+    buttons.append([InlineKeyboardButton(text="❌ отмена", callback_data="send_cancel")])
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await message.answer("📨 Выберите чат для отправки сообщения:", reply_markup=keyboard)
+    await message.answer("📨 куда отправляем?", reply_markup=keyboard)
     await state.set_state(SendStates.selecting_chat)
 
 @dp.callback_query(SendStates.selecting_chat)
 async def process_chat_selection(callback: CallbackQuery, state: FSMContext):
     data = callback.data
     if data == "send_cancel":
-        await callback.answer("Отменено.")
-        await callback.message.edit_text("❌ Отправка отменена.")
+        await callback.answer("ладно, отменил")
+        await callback.message.edit_text("❌ отправка отменена")
         await state.clear()
         return
 
     if not data.startswith("send_chat_"):
-        await callback.answer("Неизвестная команда.")
+        await callback.answer("че за команда?")
         return
 
     chat_id = int(data.split("_")[2])
     await state.update_data(selected_chat_id=chat_id)
 
-    await callback.answer(f"Выбран чат {chat_id}")
-    await callback.message.edit_text(f"📝 Введите текст сообщения для отправки в чат {chat_id}:")
+    await callback.answer(f"выбран чат {chat_id}")
+    await callback.message.edit_text(
+        "📝 отправь сообщение, которое надо переслат:"
+    )
+    await state.set_state(SendStates.waiting_content)
 
-    await state.set_state(SendStates.waiting_text)
-
-@dp.message(SendStates.waiting_text, F.text)
-async def process_message_text(message: Message, state: FSMContext):
-    await state.update_data(text_to_send=message.text)
+@dp.message(SendStates.waiting_content)
+async def process_content(message: Message, state: FSMContext):
+    await state.update_data(
+        source_chat_id=message.chat.id,
+        source_message_id=message.message_id
+    )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Отправить", callback_data="send_confirm")],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data="send_cancel")]
+        [InlineKeyboardButton(text="✅ пуск", callback_data="send_confirm")],
+        [InlineKeyboardButton(text="❌ отмена", callback_data="send_cancel")]
     ])
 
     await message.answer(
-        f"✉️ Сообщение будет отправлено:\n\n{message.text}\n\nПодтвердите действие:",
+        "✉️ отправляю сообщение?",
         reply_markup=keyboard
     )
     await state.set_state(SendStates.confirming)
@@ -261,46 +265,48 @@ async def process_message_text(message: Message, state: FSMContext):
 async def process_send_confirm(callback: CallbackQuery, state: FSMContext):
     data = callback.data
     if data == "send_cancel":
-        await callback.answer("Отменено.")
-        await callback.message.edit_text("❌ Отправка отменена.")
+        await callback.answer("отменил")
+        await callback.message.edit_text("❌ отправка отменена")
         await state.clear()
         return
 
     if data != "send_confirm":
-        await callback.answer("Неизвестная команда.")
+        await callback.answer("че за команда?")
         return
 
     user_data = await state.get_data()
     chat_id = user_data.get("selected_chat_id")
-    text = user_data.get("text_to_send")
+    source_chat_id = user_data.get("source_chat_id")
+    source_message_id = user_data.get("source_message_id")
 
-    if not chat_id or not text:
-        await callback.answer("Ошибка: данные не найдены.")
+    if not chat_id or not source_chat_id or not source_message_id:
+        await callback.answer("я сломався: данные не найдены.")
         await state.clear()
         return
 
     try:
-        await bot.send_message(chat_id=chat_id, text=text)
-        await callback.answer("✅ Сообщение отправлено!")
-        await callback.message.edit_text(f"✅ Сообщение успешно отправлено в чат {chat_id}.")
+        await bot.copy_message(
+            chat_id=chat_id,
+            from_chat_id=source_chat_id,
+            message_id=source_message_id
+        )
+        await callback.answer("✅ сообщение отправлено!")
+        await callback.message.edit_text(f"✅ сообщение успешно отправлено в чат {chat_id}.")
     except Exception as e:
-        await callback.answer("❌ Ошибка при отправке.")
-        await callback.message.edit_text(f"❌ Не удалось отправить сообщение:\n{e}")
+        await callback.answer("❌ ошибка при отправке")
+        await callback.message.edit_text(f"❌ не удалось отправить сообщение:\n{e}")
 
     await state.clear()
 
-@dp.message(SendStates.waiting_text)
-async def process_non_text(message: Message):
-    await message.answer("⛔ Пожалуйста, отправьте текстовое сообщение.")
 
 @dp.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
-        await message.answer("Нет активных действий.")
+        await message.answer("нет активных действий")
         return
     await state.clear()
-    await message.answer("Действие отменено.")
+    await message.answer("действие отменено")
 
 
 async def main():
