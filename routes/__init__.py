@@ -1,1 +1,1 @@
-from . import aura, admin
+from . import aura, admin, intelligence
