@@ -54,7 +54,7 @@ class ZhoraTrigger(BaseFilter):
             return True
 
         # @Жора
-        if "@жора" in text:
+        if "@brat_zhori_Bot" in text:
             return True
 
         # просто имя Жора
@@ -63,17 +63,6 @@ class ZhoraTrigger(BaseFilter):
 
         return False
 
-@router.message(F.sticker)
-async def sticker_info(message: Message):
-
-    print(
-        "STICKER ID:",
-        message.sticker.file_id
-    )
-
-    await message.reply(
-        f"че то типо: {message.sticker.file_id}"
-    )
 
 print("Router intelligence загружен")
 @router.message(F.text, ZhoraTrigger())
