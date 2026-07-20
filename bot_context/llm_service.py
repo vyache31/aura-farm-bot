@@ -100,7 +100,7 @@ class LLMService:
     def __init__(self, api_key: str):
         self.client = genai.Client(
             api_key=api_key
-        )
+        ).aio
 
     async def generate(
         self,
