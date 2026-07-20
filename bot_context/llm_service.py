@@ -98,17 +98,8 @@ from google import genai
 class LLMService:
 
     def __init__(self, api_key: str):
-        proxy = "socks5://xray:10808"
-
-        http_client = httpx.AsyncClient(
-            proxy=proxy
-        )
-
-        client = genai.Client(
-            api_key=api_key,
-            http_options={
-                "client": http_client
-            }
+        self.client = genai.Client(
+            api_key=api_key
         )
 
     async def generate(
