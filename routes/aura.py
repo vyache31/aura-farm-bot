@@ -7,6 +7,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 import database as db
 import words
+from bot_context.models import ChatMessage
+from bot_context.storage import chat_context
 
 router = Router()
 AURA_REGEX = re.compile(r"([+-]\s*\d+)\s*аур[аы]?", re.IGNORECASE)
@@ -50,6 +52,17 @@ async def aura_top(message: Message, bot: Bot):
             await db.save_leaderboard_message(message.chat.id, None)
 
     sent = await message.answer(text)
+    chat_context.add(
+        chat_id=message.chat.id,
+        message=ChatMessage(
+            username="Жора",
+            text=text,
+            reply_to_username=(
+                    message.from_user.username
+                    or str(message.from_user.id)
+            )
+        )
+    )
     await db.save_leaderboard_message(message.chat.id, sent.message_id)
 
 @router.message(Command("change_name"))
